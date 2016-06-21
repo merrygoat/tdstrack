@@ -1,13 +1,12 @@
 import numpy as np
-from glob import iglob
+from glob import glob
 from pandas import read_csv
 from scipy.spatial.distance import cdist
 import matplotlib.pyplot as plt
 
-def slicecorrelation(data):
+def slice_correlation(data, num_slices):
 
     matches = []
-    num_slices = len(data)
 
     plt.figure(figsize=(10, 10))
 
@@ -27,9 +26,18 @@ def slicecorrelation(data):
 def readinputfile():
     data = []
 
-    for inputfile in iglob("slices/slice_[1-7]_raw_coords.txt"):
-        data.append(read_csv(inputfile, sep="\t", header=None).values)
-    # Once appending is done then condense python list into np array
+    # Add slice number to end of frame.
+    for slice_number, inputfile in enumerate(glob("slices/slice_[1-7]_raw_coords.txt")):
+        frame = read_csv(inputfile, sep="\t", header=None).values
+        slice_array = np.full(frame.shape[0], slice_number)[:, np.newaxis]
+        frame = np.append(frame, slice_array, axis=1)
+
+        data.append(frame)
+
+    # Need to split out sperate frames into highest level list.
+
+    data = np.concatenate(data[:])
+
 
 
     return data
@@ -37,23 +45,37 @@ def readinputfile():
 def initialise_cell_list(data, num_slices):
 
     max_x = 0
+    cell_width = 2
 
-    #sort data by x-coordinate
+    #sort data by x-coordinate and find max x coodinate
     for z_slice in range(0, num_slices):
-        data = data[z_slice][np.lexsort(data[:][:, 0]), :]
-        newmax_x = np.max(data[:][:, 0])-np.min(data[:][:,0])
+        data[z_slice] = data[z_slice][np.argsort(data[z_slice][:, 0]), :]
+        newmax_x = np.max(data[z_slice][:, 0])
         if newmax_x > max_x:
             max_x = newmax_x
 
-    return data
+    n_cells = np.ceil(max_x / cell_width)
 
+    for z_slice in range(0, num_slices):
+        histo, binedges = np.histogram(data[z_slice][:, 0], bins=n_cells, range=[0,n_cells*cell_width])
+        # Need to convert from frequency to cumulative frequency for using in np.split
+        histo = np.cumsum(histo)
+        data[z_slice] = np.split(data[z_slice], histo)
+
+    return data, n_cells
+
+def particle_correlation(data, n_slices, n_cells):
+
+    pass
 
 def main():
 
     data = readinputfile()
-    num_slices = slicecorrelation(data)
+    n_slices = len(data)
 
-    data = initialise_cell_list(data, num_slices)
+    data, n_cells = initialise_cell_list(data, n_slices)
+
+    # slice_correlation(data, num_slices)
 
     print "Fin."
 
