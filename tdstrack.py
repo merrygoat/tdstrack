@@ -3,18 +3,38 @@ from glob import glob
 from pandas import read_csv
 from scipy.spatial.distance import cdist
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib.collections import PatchCollection
 
 def particle_correlation(data, num_slices):
 
+    distance_cutoff = 2
+    depth_cutoff = 3
     # Processes only one timestep
-
-    plt.figure(figsize=(10, 10))
-
+    plot, ax = plt.subplots(figsize=(8, 10))
+    print max(data[:, 0])
+    print max(data[:, 1])
     # Build neighbour matrix
-    correlations = (cdist(data[:, 0:2], data[:, 0:2]) < 1)
+    correlations = cdist(data[:, 0:2], data[:, 0:2]) < distance_cutoff
 
-    plt.imshow(correlations, interpolation="None")
-    plt.savefig("correlations.png", dpi=1000)
+    correlation_sum = (np.sum(correlations, axis=0) > depth_cutoff)
+    particles = data[correlation_sum, :]
+
+    patches = []
+    for particle in range(particles.shape[0]):
+        patches.append(mpatches.CirclePolygon((data[particle, 0], data[particle, 1]), radius=5))
+    p = PatchCollection(patches, alpha=0.1)
+
+    ax.add_collection(p)
+    plt.xlim(0, 400)
+    plt.ylim(0, 500)
+    #plt.hist(histo, bins=np.arange(10))
+    #plt.ylabel("Frequency")
+    #plt.xlabel("Number of slices")
+    plt.show()
+
+    #plt.imshow(correlations, interpolation="None")
+    #plt.savefig("correlations.png", dpi=1000)
 
 
 def readinputfile():
