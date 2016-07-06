@@ -9,7 +9,7 @@ import matplotlib.patches as mpatches
 from matplotlib.collections import PatchCollection
 
 
-def particle_correlation(data, distance_cutoff=2, depth_cutoff=3, startslice=0, endslice=1, rawstub="", timestep=0):
+def particle_correlation(data, distance_cutoff, depth_cutoff, startslice, endslice, rawstub, timestep):
     """Take particle positions from multiple slices and return the coordinates of particles common to several slices."""
     particlelist = []
 
@@ -19,6 +19,7 @@ def particle_correlation(data, distance_cutoff=2, depth_cutoff=3, startslice=0, 
     # Find particles present in more than x layers
     correlation_sum = (np.sum(correlations, axis=0) > depth_cutoff)
     filteredparticles = data[correlation_sum, 0:2]
+    rejectedparticles = data[np.logical_not(correlation_sum), 0:2]
     linkagearray = linkage(filteredparticles)
     # plotclusterdistances(linkagearray)
     particleclusters = fcluster(linkagearray, t=distance_cutoff+1, criterion="distance")
@@ -28,7 +29,8 @@ def particle_correlation(data, distance_cutoff=2, depth_cutoff=3, startslice=0, 
         particlelist.append(np.mean(filteredparticles[particleclusters == i], axis=0))
 
     if rawstub != "":
-        plotresult(filteredparticles, np.array(particlelist), start=startslice, stop=endslice, stub=rawstub, filename="t"+timestep)
+        plotresult(filteredparticles, rejectedparticles, np.array(particlelist), start=startslice, stop=endslice,
+                   stub=rawstub, timestep=timestep, distancecutoff=distance_cutoff)
 
     return particlelist
 
@@ -40,24 +42,37 @@ def plotclusterdistances(data):
     plt.show()
 
 
-def plotresult(allparticles, finalparticles, plotraw=True, plotallparticles=False, plotselected=True, start=0, stop=1, stub="", filename="output"):
+def plotresult(filteredparticles, rejectedparticles, finalparticles, start, stop, stub, timestep, distancecutoff):
     """Plot the coordinates of identifed particles over the raw images they were obtained from."""
+
+    plotraw = True
+    plotfilteredparticles = True
+    plotrejectedparticles = True
+    plotselected = True
 
     plot, ax = plt.subplots(figsize=(16, 20))
 
     if plotraw:
-        im = mpimg.imread(stub + str(start) + ".png")
+        im = mpimg.imread(stub + "t" + '{:04d}'.format(timestep) + "_z" + '{:04d}'.format(start) + ".png")
         for image in range(start + 1, stop+1):
-            im = im + mpimg.imread(stub + str(image) + ".png")
+            im = im + mpimg.imread(stub + "t" + '{:04d}'.format(timestep) + "_z" + '{:04d}'.format(image) + ".png")
         im = im/(stop-start+1)
         plt.imshow(im)
 
-    if plotallparticles:
+    if plotfilteredparticles:
         patches = []
-        for particle in range(allparticles.shape[0]):
-            patches.append(mpatches.CirclePolygon((allparticles[particle, 0], allparticles[particle, 1]), radius=5))
+        for particle in range(filteredparticles.shape[0]):
+            patches.append(mpatches.CirclePolygon((filteredparticles[particle, 0], filteredparticles[particle, 1]), radius=5))
         p1 = PatchCollection(patches, alpha=0.2, color="blue")
         ax.add_collection(p1)
+
+    if plotrejectedparticles:
+        patches = []
+        for particle in range(rejectedparticles.shape[0]):
+            patches.append(mpatches.CirclePolygon((rejectedparticles[particle, 0], rejectedparticles[particle, 1]), radius=5))
+        p1 = PatchCollection(patches, alpha=0.2, color="green")
+        ax.add_collection(p1)
+
 
     if plotselected:
         patches = []
@@ -68,7 +83,8 @@ def plotresult(allparticles, finalparticles, plotraw=True, plotallparticles=Fals
 
     plt.xlim(0, 400)
     plt.ylim(0, 500)
-    plt.savefig(filename + ".png")
+    plt.savefig("t" + str(timestep) + "dist" + str(distancecutoff) + str(plotraw) + str(plotfilteredparticles) +
+                str(plotrejectedparticles) + str(plotselected) + ".png")
 
 
 def readinputfile(globstring):
@@ -105,7 +121,12 @@ def readinputfile(globstring):
 
 def outputparticles(particles):
     """Take the data we have generated and output it as a text file"""
-    pass
+
+    outputfile = open("processedcoords.txt", 'w')
+
+    for framenumber, frame in enumerate(particles):
+        for particle in frame:
+            outputfile.write(str(particle[0]) + "\t" + str(particle[1]) + "\t" + str(framenumber) + "\n")
 
 
 def main():
@@ -116,7 +137,7 @@ def main():
     startslice = 1
     endslice = 7
     globstring = "slices/slice_[1-7]_raw_coords.txt"
-    rawstub = "" #"images/FITC 19_t0001_z000"
+    rawstub = "images/FITC 19_"
 
     # Begin main
     print("Loading data.")
@@ -128,7 +149,7 @@ def main():
 
     for frametime in range(num_timesteps):
         print("Processing frame " + str(frametime+1) + " of " + str(num_timesteps))
-        selected_particles = particle_correlation(data[frametime], distance_cutoff, depth_cutoff, startslice, endslice, rawstub, frametime)
+        selected_particles.append(particle_correlation(data[frametime], distance_cutoff, depth_cutoff, startslice, endslice, rawstub, frametime+1))
 
     outputparticles(selected_particles)
     print "Fin."
