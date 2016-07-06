@@ -9,7 +9,7 @@ import matplotlib.patches as mpatches
 from matplotlib.collections import PatchCollection
 
 
-def particle_correlation(data, distance_cutoff=2, depth_cutoff=3, startslice=0, endslice=1, rawstub=""):
+def particle_correlation(data, distance_cutoff=2, depth_cutoff=3, startslice=0, endslice=1, rawstub="", timestep=0):
     """Take particle positions from multiple slices and return the coordinates of particles common to several slices."""
     particlelist = []
 
@@ -28,7 +28,7 @@ def particle_correlation(data, distance_cutoff=2, depth_cutoff=3, startslice=0, 
         particlelist.append(np.mean(filteredparticles[particleclusters == i], axis=0))
 
     if rawstub != "":
-        plotresult(filteredparticles, np.array(particlelist), start=startslice, stop=endslice, stub=rawstub)
+        plotresult(filteredparticles, np.array(particlelist), start=startslice, stop=endslice, stub=rawstub, filename="t"+timestep)
 
     return particlelist
 
@@ -123,9 +123,14 @@ def main():
     data, n_frames, n_slices = readinputfile(globstring)
     print("Data loading complete.")
 
-    for frametime in range(min(n_frames, num_timesteps)):
-        outputparticles(particle_correlation(data[frametime], distance_cutoff, depth_cutoff, startslice, endslice, rawstub))
+    num_timesteps = min(n_frames, num_timesteps)
+    selected_particles = []
 
+    for frametime in range(num_timesteps):
+        print("Processing frame " + str(frametime+1) + " of " + str(num_timesteps))
+        selected_particles = particle_correlation(data[frametime], distance_cutoff, depth_cutoff, startslice, endslice, rawstub, frametime)
+
+    outputparticles(selected_particles)
     print "Fin."
 
 
