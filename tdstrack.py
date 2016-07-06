@@ -102,7 +102,7 @@ def readinputfile(globstring):
         frame = np.append(frame, slice_array, axis=1)
         data.append(frame)
 
-    n_frames = int(max(data[0][:, 5]))
+    n_frames = int(max(data[0][:, 5]))+1
     n_slices = len(data)
     sorted_data = [[] for i in range(n_frames)]
 
@@ -133,7 +133,7 @@ def main():
 
     distance_cutoff = 2
     depth_cutoff = 3
-    num_timesteps = 2
+    num_timesteps = 30
     startslice = 1
     endslice = 7
     globstring = "slices/slice_[1-7]_raw_coords.txt"
